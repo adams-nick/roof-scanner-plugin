@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roof Scanner Plugin - Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      margin: 0;
+      padding: 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      padding: 40px;
+    }
+
+    h1 {
+      color: #333;
+      margin-top: 0;
+      font-size: 2.5rem;
+    }
+
+    h2 {
+      color: #555;
+      margin-top: 40px;
+      font-size: 1.5rem;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 10px;
+    }
+
+    .demo-section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+
+    .demo-button {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 10px;
+      transition: background 0.2s;
+    }
+
+    .demo-button:hover {
+      background: #218838;
+    }
+
+    .code-block {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 20px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 20px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+
+    .controls {
+      margin: 20px 0;
+      padding: 20px;
+      background: #e9ecef;
+      border-radius: 6px;
+    }
+
+    .control-group {
+      margin: 15px 0;
+    }
+
+    .control-group label {
+      display: inline-block;
+      width: 150px;
+      font-weight: 600;
+    }
+
+    .control-group select,
+    .control-group input {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .status {
+      padding: 10px;
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+
+    .api-section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 6px;
+    }
+
+    .tab-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .tab-button {
+      padding: 10px 20px;
+      background: #e9ecef;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .tab-button.active {
+      background: #007bff;
+      color: white;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏠 Roof Scanner Plugin Demo</h1>
+    <p>Test the embeddable roof scanner widget with different configuration options.</p>
+
+    <div class="status" id="status">
+      Widget Status: <strong id="status-text">Loading...</strong>
+    </div>
+
+    <h2>Configuration Options</h2>
+    <div class="controls">
+      <div class="control-group">
+        <label>Mode:</label>
+        <select id="mode-select">
+          <option value="overlay">Overlay Button</option>
+          <option value="trigger">Data Attribute Trigger</option>
+        </select>
+      </div>
+      
+      <div class="control-group">
+        <label>Position:</label>
+        <select id="position-select">
+          <option value="bottom-right">Bottom Right</option>
+          <option value="bottom-left">Bottom Left</option>
+          <option value="top-right">Top Right</option>
+          <option value="top-left">Top Left</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>API Key:</label>
+        <input type="text" id="api-key-input" placeholder="test-api-key-123" value="test-api-key-123">
+      </div>
+
+      <div class="control-group">
+        <label>Server URL:</label>
+        <input type="text" id="server-url-input" placeholder="http://localhost:3000" value="http://localhost:3000">
+      </div>
+
+      <button class="demo-button" onclick="reinitializeWidget()">Apply Configuration</button>
+    </div>
+
+    <h2>Demo Options</h2>
+    
+    <div class="tab-buttons">
+      <button class="tab-button active" onclick="switchTab('overlay')">Overlay Mode</button>
+      <button class="tab-button" onclick="switchTab('trigger')">Trigger Mode</button>
+      <button class="tab-button" onclick="switchTab('api')">JavaScript API</button>
+    </div>
+
+    <div id="overlay-tab" class="tab-content active">
+      <div class="demo-section">
+        <h3>Overlay Button Mode</h3>
+        <p>In overlay mode, a floating button is automatically added to the page. Look for the blue button in the corner of the screen.</p>
+        <p>The button position can be configured using the controls above.</p>
+      </div>
+    </div>
+
+    <div id="trigger-tab" class="tab-content">
+      <div class="demo-section">
+        <h3>Data Attribute Trigger Mode</h3>
+        <p>In trigger mode, you can add the <code>data-roof-scanner-trigger</code> attribute to any element to make it open the widget.</p>
+        
+        <p>Try these buttons:</p>
+        <button class="demo-button" data-roof-scanner-trigger>
+          Open Roof Scanner (Button)
+        </button>
+        
+        <a href="#" class="demo-button" data-roof-scanner-trigger style="text-decoration: none; display: inline-block;">
+          Open Roof Scanner (Link)
+        </a>
+        
+        <div data-roof-scanner-trigger style="display: inline-block; padding: 12px 24px; background: #17a2b8; color: white; border-radius: 6px; cursor: pointer;">
+          Open Roof Scanner (Div)
+        </div>
+      </div>
+    </div>
+
+    <div id="api-tab" class="tab-content">
+      <div class="demo-section">
+        <h3>JavaScript API</h3>
+        <p>You can also control the widget programmatically using JavaScript:</p>
+        
+        <button class="demo-button" onclick="window.RoofScanner.open()">
+          RoofScanner.open()
+        </button>
+        
+        <button class="demo-button" onclick="window.RoofScanner.close()">
+          RoofScanner.close()
+        </button>
+        
+        <button class="demo-button" onclick="testAPI()">
+          Test Full API
+        </button>
+
+        <div class="code-block">
+// Open the widget
+window.RoofScanner.open();
+
+// Close the widget
+window.RoofScanner.close();
+
+// Destroy the widget
+window.RoofScanner.destroy();
+
+// Reinitialize with new config
+window.RoofScanner.init({
+  mode: 'overlay',
+  position: 'bottom-left',
+  apiKey: 'new-key'
+});
+        </div>
+      </div>
+    </div>
+
+    <h2>Integration Code</h2>
+    <div class="demo-section">
+      <h3>Embed Script</h3>
+      <p>Copy this code to add the Roof Scanner to your website:</p>
+      
+      <div class="code-block" id="embed-code">
+&lt;script 
+  src="/src/main.js"
+  data-api-key="test-api-key-123"
+  data-mode="overlay"
+  data-position="bottom-right"
+  data-server-url="http://localhost:3000"&gt;
+&lt;/script&gt;
+      </div>
+    </div>
+
+    <h2>Events</h2>
+    <div class="demo-section">
+      <h3>Event Log</h3>
+      <div id="event-log" style="background: white; padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-height: 100px; font-family: monospace; font-size: 12px;">
+        Waiting for events...
+      </div>
+    </div>
+  </div>
+
+  <!-- Include the widget script -->
+  <script 
+    src="/src/main.js"
+    data-api-key="test-api-key-123"
+    data-mode="overlay"
+    data-position="bottom-right"
+    data-server-url="http://localhost:3000">
+  </script>
+
+  <script>
+    // Demo page functionality
+    let eventLog = document.getElementById('event-log');
+    let eventCount = 0;
+
+    function logEvent(message) {
+      eventCount++;
+      const timestamp = new Date().toLocaleTimeString();
+      eventLog.innerHTML = `[${timestamp}] ${message}<br>` + 
+        (eventCount > 1 ? eventLog.innerHTML : '');
+    }
+
+    // Listen for widget ready event
+    window.addEventListener('roofscanner:ready', () => {
+      document.getElementById('status-text').textContent = 'Ready';
+      logEvent('Widget ready');
+    });
+
+    function switchTab(tabName) {
+      // Update buttons
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      // Update content
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+      
+      logEvent(`Switched to ${tabName} tab`);
+    }
+
+    function reinitializeWidget() {
+      const mode = document.getElementById('mode-select').value;
+      const position = document.getElementById('position-select').value;
+      const apiKey = document.getElementById('api-key-input').value;
+      const serverUrl = document.getElementById('server-url-input').value;
+
+      // Destroy existing widget
+      if (window.RoofScanner) {
+        window.RoofScanner.destroy();
+      }
+
+      // Reinitialize with new config
+      window.RoofScanner.init({
+        mode: mode,
+        position: position,
+        apiKey: apiKey,
+        serverUrl: serverUrl
+      });
+
+      logEvent(`Widget reinitialized - Mode: ${mode}, Position: ${position}`);
+      
+      // Update embed code display
+      updateEmbedCode(mode, position, apiKey, serverUrl);
+    }
+
+    function updateEmbedCode(mode, position, apiKey, serverUrl) {
+      const codeBlock = document.getElementById('embed-code');
+      codeBlock.textContent = `<script 
+  src="https://cdn.yourdomain.com/roof-scanner.js"
+  data-api-key="${apiKey}"
+  data-mode="${mode}"
+  data-position="${position}"
+  data-server-url="${serverUrl}">
+</script>`;
+    }
+
+    function testAPI() {
+      logEvent('Testing API...');
+      
+      // Open
+      window.RoofScanner.open();
+      logEvent('Called open()');
+      
+      // Close after 2 seconds
+      setTimeout(() => {
+        window.RoofScanner.close();
+        logEvent('Called close()');
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
