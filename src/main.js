@@ -103,6 +103,12 @@
         'demo-key-123': {
           serverUrl: 'http://localhost:3000',
           googleMapsApiKey: 'AIzaSyDEuztnki5fYeIsQ2qGcTd38sXOqE-v7bE',
+          defaultLocation: {
+            lat: 51.0447,
+            lng: -114.0719,
+            address: 'Calgary, AB, Canada',
+            zoom: 13
+          },
           theme: {
             primaryColor: '#2196F3',
             buttonStyle: 'rounded'
@@ -115,6 +121,12 @@
         'demo-key-456': {
           serverUrl: 'http://localhost:3000',
           googleMapsApiKey: 'AIzaSyDEuztnki5fYeIsQ2qGcTd38sXOqE-v7bE',
+          defaultLocation: {
+            lat: 51.0447,
+            lng: -114.0719,
+            address: 'Calgary, AB, Canada',
+            zoom: 13
+          },
           theme: {
             primaryColor: '#4CAF50',
             buttonStyle: 'square'
@@ -133,6 +145,12 @@
       return {
         serverUrl: 'http://localhost:3000',
         googleMapsApiKey: 'AIzaSyDEuztnki5fYeIsQ2qGcTd38sXOqE-v7bE',
+        defaultLocation: {
+          lat: 51.0447,
+          lng: -114.0719,
+          address: 'Calgary, AB, Canada',
+          zoom: 13
+        },
         theme: {
           primaryColor: '#2196F3',
           buttonStyle: 'rounded'
@@ -308,43 +326,19 @@
             font-size: 14px;
           }
 
-          .selected-address {
-            background-color: #e8f5e9;
-            padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 16px;
-          }
 
-          .selected-address h4 {
-            margin: 0 0 8px 0;
-            color: #2e7d32;
-          }
-
-          .selected-address p {
-            margin: 0;
-            font-size: 14px;
-            color: #555;
-          }
-
-          .action-button {
-            background: #4285F4;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 16px;
-            border-radius: 4px;
-            cursor: pointer;
+          .map-container {
             width: 100%;
-            margin-top: 16px;
+            height: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 20px 0;
+            border: 1px solid #ddd;
           }
 
-          .action-button:hover:not(:disabled) {
-            background: #3367d6;
-          }
-
-          .action-button:disabled {
-            background: #cccccc;
-            cursor: not-allowed;
+          #map {
+            width: 100%;
+            height: 100%;
           }
         </style>
         <div class="backdrop"></div>
@@ -361,6 +355,7 @@
               API Key: ${this.config.apiKey || 'undefined'}<br>
               Server URL: ${this.config.serverUrl || 'undefined'}<br>
               Google Maps Key: ${this.config.googleMapsApiKey ? this.config.googleMapsApiKey.substring(0, 20) + '...' : 'undefined'}<br>
+              Default Location: ${this.config.defaultLocation ? `${this.config.defaultLocation.address} (${this.config.defaultLocation.lat}, ${this.config.defaultLocation.lng})` : 'undefined'}<br>
               Theme: ${this.config.theme ? JSON.stringify(this.config.theme) : 'undefined'}<br>
               Features: ${this.config.features ? JSON.stringify(this.config.features) : 'undefined'}
             </div>
@@ -382,16 +377,11 @@
               </div>
               <p class="helper-text">We'll search for your address and show available buildings</p>
             </div>
-            
-            <div class="selected-address" id="selected-address" style="display: none;">
-              <h4>Selected Address:</h4>
-              <p id="selected-address-text"></p>
-              <p>Coordinates: <span id="selected-coordinates"></span></p>
+
+            <!-- Google Maps Container -->
+            <div class="map-container">
+              <div id="map"></div>
             </div>
-            
-            <button class="action-button" id="analyze-button" disabled>
-              Start Solar Analysis
-            </button>
           </div>
         </div>
       `;
@@ -412,6 +402,9 @@
 
       // Setup address search functionality
       this.setupAddressSearch();
+
+      // Initialize Google Maps
+      this.initializeMap();
     }
 
     // Places API search functionality
@@ -518,12 +511,69 @@
       return place;
     }
 
+    async initializeMap() {
+      try {
+        console.log('[RoofScanner] Initializing Google Maps');
+        
+        if (!this.config.googleMapsApiKey) {
+          console.error('[RoofScanner] Google Maps API key not configured');
+          return;
+        }
+
+        // Load Google Maps API if not loaded
+        if (!window.google || !window.google.maps) {
+          await this.loadGoogleMapsAPI();
+        }
+
+        // Get the map container
+        const mapContainer = this.shadowRoot.querySelector('#map');
+        if (!mapContainer) {
+          console.error('[RoofScanner] Map container not found');
+          return;
+        }
+
+        // Use default location from config
+        const defaultLocation = this.config.defaultLocation || {
+          lat: 51.0447,
+          lng: -114.0719,
+          zoom: 13
+        };
+
+        // Initialize the map
+        this.map = new google.maps.Map(mapContainer, {
+          center: { lat: defaultLocation.lat, lng: defaultLocation.lng },
+          zoom: defaultLocation.zoom,
+          mapTypeId: 'satellite', // Use satellite view for roof analysis
+          tilt: 0, // Keep overhead view, no 45° angle
+          gestureHandling: 'none', // Disable all map interactions
+          zoomControl: false,
+          mapTypeControl: false,
+          scaleControl: false,
+          streetViewControl: false,
+          rotateControl: false,
+          fullscreenControl: false,
+          keyboardShortcuts: false,
+          clickableIcons: false,
+          disableDefaultUI: true,
+          scrollwheel: false,
+          disableDoubleClickZoom: true,
+          draggable: false
+        });
+
+        // No marker needed - clean satellite view
+        this.mapMarker = null;
+
+        console.log('[RoofScanner] Google Maps initialized successfully');
+
+      } catch (error) {
+        console.error('[RoofScanner] Failed to initialize Google Maps:', error);
+      }
+    }
 
     setupAddressSearch() {
       const addressInput = this.shadowRoot.querySelector('#address-input');
       const loadingIndicator = this.shadowRoot.querySelector('#loading-indicator');
       const suggestionsContainer = this.shadowRoot.querySelector('#suggestions-dropdown');
-      const analyzeButton = this.shadowRoot.querySelector('#analyze-button');
       
       let searchTimeout;
       let selectedLocation = null;
@@ -551,13 +601,6 @@
           this.showLoading(false);
           this.renderSuggestions(suggestions);
         }, 300);
-      });
-      
-      // Handle analyze button click
-      analyzeButton.addEventListener('click', () => {
-        if (selectedLocation) {
-          this.startSolarAnalysis(selectedLocation);
-        }
       });
       
       // Store reference for later use
@@ -602,10 +645,6 @@
 
     selectAddress(suggestion) {
       const addressInput = this.shadowRoot.querySelector('#address-input');
-      const selectedAddressDiv = this.shadowRoot.querySelector('#selected-address');
-      const selectedAddressText = this.shadowRoot.querySelector('#selected-address-text');
-      const selectedCoordinates = this.shadowRoot.querySelector('#selected-coordinates');
-      const analyzeButton = this.shadowRoot.querySelector('#analyze-button');
       
       // Store selected location
       this.selectedLocation = {
@@ -615,33 +654,39 @@
         placeId: suggestion.place_id
       };
       
-      // Update UI
+      // Update address input
       addressInput.value = this.selectedLocation.address;
-      selectedAddressText.textContent = this.selectedLocation.address;
-      selectedCoordinates.textContent = `${this.selectedLocation.latitude.toFixed(6)}, ${this.selectedLocation.longitude.toFixed(6)}`;
-      
-      // Show selected address info
-      selectedAddressDiv.style.display = 'block';
-      
-      // Enable analyze button
-      analyzeButton.disabled = false;
       
       // Hide suggestions
       this.hideSuggestions();
       
       // Clear any errors
       this.hideError();
+
+      // Update map location
+      this.updateMapLocation(this.selectedLocation.latitude, this.selectedLocation.longitude, this.selectedLocation.address);
       
       console.log('[RoofScanner] Address selected:', this.selectedLocation);
     }
 
-    clearSelection() {
-      const selectedAddressDiv = this.shadowRoot.querySelector('#selected-address');
-      const analyzeButton = this.shadowRoot.querySelector('#analyze-button');
+    updateMapLocation(lat, lng, address) {
+      if (!this.map) {
+        console.warn('[RoofScanner] Map not initialized, cannot update location');
+        return;
+      }
+
+      const newPosition = { lat: lat, lng: lng };
       
+      // Update map center and zoom, maintaining overhead view
+      this.map.setCenter(newPosition);
+      this.map.setZoom(18); // Zoom in closer for roof analysis
+      this.map.setTilt(0); // Ensure overhead view is maintained
+      
+      console.log('[RoofScanner] Map updated to:', newPosition);
+    }
+
+    clearSelection() {
       this.selectedLocation = null;
-      selectedAddressDiv.style.display = 'none';
-      analyzeButton.disabled = true;
     }
 
     showError(message) {
@@ -655,21 +700,6 @@
       errorDiv.style.display = 'none';
     }
 
-    async startSolarAnalysis(location) {
-      console.log('[RoofScanner] Starting solar analysis for:', location);
-      
-      // TODO: Phase 2 - Connect to comprehensive route
-      // For now, just show a placeholder message
-      const analyzeButton = this.shadowRoot.querySelector('#analyze-button');
-      analyzeButton.textContent = 'Analysis starting...';
-      analyzeButton.disabled = true;
-      
-      // Simulate analysis (replace with real implementation in Phase 2)
-      setTimeout(() => {
-        analyzeButton.textContent = 'Analysis Complete! (Demo)';
-        console.log('[RoofScanner] Analysis would start here with location:', location);
-      }, 2000);
-    }
 
     createOverlayButton() {
       console.log('[RoofScanner] Creating overlay button');
