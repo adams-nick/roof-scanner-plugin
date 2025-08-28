@@ -340,6 +340,40 @@
             width: 100%;
             height: 100%;
           }
+
+          .scan-roof-section {
+            margin-top: 20px;
+            text-align: center;
+          }
+
+          .scan-roof-button {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin: 0 auto;
+          }
+
+          .scan-roof-button:hover {
+            background: linear-gradient(135deg, #45a049, #3d8b40);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+          }
+
+          .scan-roof-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          }
         </style>
         <div class="backdrop"></div>
         <div class="modal">
@@ -381,6 +415,13 @@
             <!-- Google Maps Container -->
             <div class="map-container">
               <div id="map"></div>
+            </div>
+            
+            <!-- Scan Roof Button (hidden initially) -->
+            <div class="scan-roof-section" id="scan-roof-section" style="display: none;">
+              <button class="scan-roof-button" id="scan-roof-button">
+                🏠 Scan Roof Now
+              </button>
             </div>
           </div>
         </div>
@@ -544,8 +585,9 @@
           center: { lat: defaultLocation.lat, lng: defaultLocation.lng },
           zoom: defaultLocation.zoom,
           mapTypeId: 'satellite', // Use satellite view for roof analysis
+          mapId: 'DEMO_MAP_ID', // Required for AdvancedMarkerElement
           tilt: 0, // Keep overhead view, no 45° angle
-          gestureHandling: 'none', // Disable all map interactions
+          gestureHandling: 'none', // Disable all map interactions initially
           zoomControl: false,
           mapTypeControl: false,
           scaleControl: false,
@@ -555,13 +597,19 @@
           keyboardShortcuts: false,
           clickableIcons: false,
           disableDefaultUI: true,
+          panControl: false, // Initially disabled, will enable after location change
           scrollwheel: false,
           disableDoubleClickZoom: true,
           draggable: false
         });
 
-        // No marker needed - clean satellite view
-        this.mapMarker = null;
+        // Track if location has changed from default
+        this.hasChangedFromDefault = false;
+
+        // Initialize marker properties
+        this.mapMarker = null; // For address search markers (currently not used)
+        this.clickMarker = null; // For user click/touch markers
+        this.mapClickListener = null; // For click event listener
 
         console.log('[RoofScanner] Google Maps initialized successfully');
 
@@ -677,12 +725,96 @@
 
       const newPosition = { lat: lat, lng: lng };
       
+      // Check if this is a location change from the default
+      const defaultLocation = this.config.defaultLocation || { lat: 51.0447, lng: -114.0719 };
+      const isChangingFromDefault = (lat !== defaultLocation.lat || lng !== defaultLocation.lng);
+      
       // Update map center and zoom, maintaining overhead view
       this.map.setCenter(newPosition);
       this.map.setZoom(18); // Zoom in closer for roof analysis
       this.map.setTilt(0); // Ensure overhead view is maintained
       
+      // Enable dragging and click events after first location change from default
+      if (isChangingFromDefault && !this.hasChangedFromDefault) {
+        this.hasChangedFromDefault = true;
+        this.map.setOptions({
+          draggable: true,
+          gestureHandling: 'cooperative' // Allow panning with cooperative gestures
+        });
+        
+        // Enable click-to-drop-marker functionality
+        this.enableMapClickEvents();
+        
+        console.log('[RoofScanner] Map dragging and click events enabled after location change');
+      }
+      
       console.log('[RoofScanner] Map updated to:', newPosition);
+    }
+
+    async enableMapClickEvents() {
+      if (!this.map) return;
+      
+      try {
+        // Import the marker library
+        const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+        
+        // Add click event listener for dropping markers
+        this.mapClickListener = this.map.addListener('click', async (event) => {
+          const clickedLocation = {
+            lat: event.latLng.lat(),
+            lng: event.latLng.lng()
+          };
+          
+          // Clear previous marker if exists
+          if (this.clickMarker) {
+            this.clickMarker.map = null;
+          }
+          
+          // Create new advanced marker at clicked location
+          this.clickMarker = new AdvancedMarkerElement({
+            position: clickedLocation,
+            map: this.map,
+            title: 'Analysis Point'
+          });
+          
+          // Show the Scan Roof button now that a marker is placed
+          this.showScanRoofButton();
+          
+          console.log('[RoofScanner] Advanced marker dropped at:', clickedLocation);
+        });
+        
+      } catch (error) {
+        console.error('[RoofScanner] Failed to load marker library:', error);
+      }
+    }
+
+    showScanRoofButton() {
+      const scanRoofSection = this.shadowRoot.querySelector('#scan-roof-section');
+      if (scanRoofSection) {
+        scanRoofSection.style.display = 'block';
+        
+        // Add click handler if not already added
+        const scanButton = this.shadowRoot.querySelector('#scan-roof-button');
+        if (scanButton && !scanButton.hasAttribute('data-handler-added')) {
+          scanButton.setAttribute('data-handler-added', 'true');
+          scanButton.addEventListener('click', () => this.startRoofScan());
+        }
+      }
+    }
+
+    startRoofScan() {
+      if (!this.clickMarker) {
+        console.warn('[RoofScanner] No marker placed for roof scan');
+        return;
+      }
+      
+      // Get the marker position
+      const position = this.clickMarker.position;
+      console.log('[RoofScanner] Starting roof scan at:', position);
+      
+      // TODO: Integrate with roof scanning API
+      // For now, just log the action
+      alert(`Starting roof analysis at coordinates:\nLatitude: ${position.lat}\nLongitude: ${position.lng}`);
     }
 
     clearSelection() {
